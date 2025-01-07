@@ -208,8 +208,9 @@ def create_interactive_gantt(data, selected_date):
         yref="paper",
         text="Types de vols:<br>Liseret Rouge = Départ Sec<br>Liseret Jaune = Night Stop",
         showarrow=False,
-        font=dict(size=12),
+        font=dict(color='black',size=12),
         align="left"
+
     )
 
     return fig
@@ -236,9 +237,6 @@ def display_flight_types(data):
     depart_sec = data[data['Flight_Type'] == 'Depart_Sec']
     night_stop = data[data['Flight_Type'] == 'Night_Stop']
 
-    st.write(f"**Nombre de vols 'Départs Secs' :** {len(depart_sec)}")
-    st.write(f"**Nombre de vols 'Night Stop' :** {len(night_stop)}")
-
     # Formater l'affichage des dates
     def format_datetime(df):
         df = df.copy()
@@ -248,11 +246,11 @@ def display_flight_types(data):
 
     col1, col2 = st.columns(2)
     with col1:
-        st.write("### Départs Secs")
-        st.dataframe(format_datetime(depart_sec[['VOLD', 'HA', 'HD', 'Company']]))
+        st.write(f"**Nombre de Départs Secs :** {len(depart_sec)}")
+        st.dataframe(format_datetime(depart_sec[['VOLD', 'HA', 'HD', 'DEST']]))
     with col2:
-        st.write("### Vols 'Night Stop'")
-        st.dataframe(format_datetime(night_stop[['VOLA', 'HA', 'HD', 'Company']]))
+        st.write(f"**Nombre de Night Stop :** {len(night_stop)}")
+        st.dataframe(format_datetime(night_stop[['VOLA', 'HA', 'HD', 'ORG']]))
 
 st.title("Analyse du programme des vols")
 
@@ -280,7 +278,7 @@ if data_file:
     gantt_chart = create_interactive_gantt(filtered_data, selected_date)
     st.plotly_chart(gantt_chart)
 
-    st.write("### Analyse des types de vols")
+    st.write("### Types de vols")
     display_flight_types(filtered_data)
 
     if st.checkbox("Afficher/Masquer les statistiques des vols:"):
