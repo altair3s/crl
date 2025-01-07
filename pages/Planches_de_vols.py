@@ -7,6 +7,11 @@ import io
 
 st.set_page_config(layout='wide')
 
+@st.cache_data
+def cached_preprocess_data(data):
+    """Fonction mise en cache pour prétraiter les données."""
+    return preprocess_data(data)
+
 def parse_time(time_value):
     if pd.isna(time_value):
         return None
@@ -211,7 +216,7 @@ if data_file:
     uploaded_data = pd.ExcelFile(data_file)
     sheet = uploaded_data.sheet_names[0]
     raw_data = uploaded_data.parse(sheet)
-    raw_data = preprocess_data(raw_data)
+    raw_data = cached_preprocess_data(raw_data)
 
     available_days = raw_data['JOUR'].unique()
     selected_day = st.selectbox("Sélectionner un jour", available_days)
@@ -269,4 +274,3 @@ if data_file:
         except Exception as e:
             st.error(f"Une erreur est survenue lors de l'export du PDF : {str(e)}")
             st.info("Assurez-vous d'avoir installé le package kaleido : pip install kaleido")
-
