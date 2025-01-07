@@ -2,9 +2,15 @@ import pandas as pd
 import streamlit as st
 from datetime import datetime, timedelta, time
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit.components.v1 as components
 import io
-import plotly.graph_objects as go
+import tempfile
+import os
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import landscape, A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 st.set_page_config(layout='wide')
 
@@ -305,6 +311,130 @@ def display_flight_types(data):
         st.write(f"**Nombre de Night Stop :** {len(night_stop)}")
         st.dataframe(format_datetime(night_stop[['VOLA', 'HA', 'HD', 'ORG']]))
 
+def create_pdf_report(data, selected_date, gantt_chart):
+    # Création d'un fichier temporaire pour le PDF
+    temp_dir = tempfile.gettempdir()
+    pdf_path = os.path.join(temp_dir, f"rapport_vols_{selected_date.strftime('%Y%m%d')}.pdf")
+
+    # Création du document PDF
+    doc = SimpleDocTemplate(
+        pdf_path,
+        pagesize=landscape(A4),
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=30,
+        bottomMargin=30
+    )
+
+    # Styles pour le PDF
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        spaceAfter=30,
+        alignment=1  # Centre
+    )
+    subtitle_style = ParagraphStyle(
+        'CustomSubTitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=12,
+        spaceBefore=20
+    )
+
+    # Liste des éléments du PDF
+    elements = []
+
+    # Titre principal
+    elements.append(Paragraph(f"Rapport des vols - {selected_date.strftime('%d/%m/%Y')}", title_style))
+    elements.append(Spacer(1, 20))
+
+    # Export et ajout du Gantt
+    temp_gantt_path = os.path.join(temp_dir, "temp_gantt.png")
+    gantt_chart.write_image(temp_gantt_path, width=1000, height=400)
+    elements.append(Paragraph("Planning des vols", subtitle_style))
+    elements.append(Image(temp_gantt_path, width=700, height=280))
+    elements.append(Spacer(1, 20))
+
+    # Statistiques des vols
+    elements.append(Paragraph("Statistiques des vols", subtitle_style))
+
+    # Calcul des statistiques
+    flights_per_company = data.groupby(['Company']).size()
+    total_flights = len(data)
+    total_pax = data['PAX'].sum() if 'PAX' in data.columns else 0
+
+    # Tableau des statistiques par compagnie
+    stats_data = [["Compagnie", "Nombre de vols", "Pourcentage", "Passagers"]]
+    for company in flights_per_company.index:
+        num_flights = flights_per_company[company]
+        percentage = (num_flights / total_flights) * 100
+        pax_count = data[data['Company'] == company]['PAX'].sum() if 'PAX' in data.columns else 0
+        stats_data.append([
+            company,
+            str(num_flights),
+            f"{percentage:.1f}%",
+            str(int(pax_count))
+        ])
+    stats_data.append(["Total", str(total_flights), "100%", str(int(total_pax))])
+
+    # Création et style du tableau
+    stats_table = Table(stats_data, colWidths=[200, 100, 100, 100])
+    stats_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+        ('TEXTCOLOR', (0, -1), (-1, -1), colors.black),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    elements.append(stats_table)
+    elements.append(Spacer(1, 20))
+
+    # Types de vols spéciaux
+    elements.append(Paragraph("Détails des vols spéciaux", subtitle_style))
+
+    depart_sec = data[data['Flight_Type'] == 'Depart_Sec']
+    night_stop = data[data['Flight_Type'] == 'Night_Stop']
+
+    special_flights_data = [
+        ["Type de vol", "Nombre", "Pourcentage", "Détails"],
+        ["Départs Secs", str(len(depart_sec)), f"{(len(depart_sec) / total_flights) * 100:.1f}%", "Vols avec liseret rouge"],
+        ["Night Stop", str(len(night_stop)), f"{(len(night_stop) / total_flights) * 100:.1f}%", "Vols avec liseret jaune"],
+    ]
+
+    special_flights_table = Table(special_flights_data, colWidths=[200, 100, 100, 200])
+    special_flights_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    elements.append(special_flights_table)
+
+    # Création du PDF
+    doc.build(elements)
+
+    # Lecture du fichier PDF créé
+    with open(pdf_path, 'rb') as pdf_file:
+        pdf_data = pdf_file.read()
+
+    # Nettoyage des fichiers temporaires
+    os.remove(pdf_path)
+    os.remove(temp_gantt_path)
+
+    return pdf_data
+
+
+
 st.title("Analyse du programme des vols")
 
 data_file = st.file_uploader("Charger un fichier Excel", type=['xlsx'])
@@ -361,6 +491,25 @@ if data_file:
                     height=450
                 )
 
+
+    def add_export_button(data, selected_date, gantt_chart):
+        if st.button("Exporter le rapport complet en PDF"):
+            try:
+                pdf_data = create_pdf_report(data, selected_date, gantt_chart)
+                st.download_button(
+                    label="Télécharger le rapport PDF",
+                    data=pdf_data,
+                    file_name=f"rapport_vols_{selected_date.strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf"
+                )
+            except Exception as e:
+                st.error(f"Erreur lors de la création du PDF : {str(e)}")
+    gantt_chart = create_interactive_gantt(filtered_data, selected_date)
+    #st.plotly_chart(gantt_chart)
+
+    # Ajout du bouton d'export
+    add_export_button(filtered_data, selected_date, gantt_chart)
+
     export_btn = st.button("Exporter le graphique Gantt en PDF")
     if export_btn:
         try:
@@ -374,3 +523,5 @@ if data_file:
         except Exception as e:
             st.error(f"Une erreur est survenue lors de l'export du PDF : {str(e)}")
             st.info("Assurez-vous d'avoir installé le package kaleido : pip install kaleido")
+
+
