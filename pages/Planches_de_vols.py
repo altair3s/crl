@@ -511,7 +511,7 @@ if data_file:
         # Ajout du bouton d'export
         add_export_button(filtered_data, selected_date, gantt_chart)
 
-        export_btn = st.button("Exporter le graphique Gantt en PDF")
+        export_btn = st.button("Exporter la planche jour en PDF")
         if export_btn:
             try:
                 pdf_data = export_gantt_to_pdf(gantt_chart)
