@@ -219,14 +219,14 @@ if data_file:
     raw_data = cached_preprocess_data(raw_data)
 
     available_days = raw_data['JOUR'].unique()
-    selected_day = st.selectbox("Sélectionner un jour", available_days)
-    filtered_data = raw_data[raw_data['JOUR'] == selected_day]
+    #selected_day = st.selectbox("Sélectionner un jour", available_days)
+    #filtered_data = raw_data[raw_data['JOUR'] == selected_day]
 
     available_dates = pd.to_datetime(raw_data['DATE'].unique())
     selected_date = st.selectbox("Sélectionner une date", available_dates, format_func=lambda x: x.strftime('%d/%m/%Y'))
     filtered_data = raw_data[pd.to_datetime(raw_data['DATE']) == selected_date]
 
-    st.write("**Données traitées pour le jour sélectionné:**", selected_day)
+    #st.write("**Données traitées pour le jour sélectionné:**", selected_day)
     if st.checkbox("Afficher/Masquer la liste des vols:"):
         st.dataframe(filtered_data)
 
