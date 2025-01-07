@@ -252,7 +252,7 @@ def create_interactive_gantt(data, selected_date):
         y=1,
         xref="paper",
         yref="paper",
-        text="Types de vols:<br>Liseret Rouge à droite = Départ Sec<br>Liseret bleu à gauche= Night Stop",
+        text="Types de vols:<br>Liseret Rouge = Départ Sec<br>Liseret bleu = Night Stop",
         showarrow=False,
         font=dict(size=12),
         align="left"
