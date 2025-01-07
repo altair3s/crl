@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, time
 import plotly.express as px
 import streamlit.components.v1 as components
 import io
+import plotly.graph_objects as go
 
 st.set_page_config(layout='wide')
 
@@ -122,6 +123,7 @@ def create_echarts_html(data, title, type_data):
     """
     return html
 
+
 def create_interactive_gantt(data, selected_date):
     data['HA_str'] = data['HA'].dt.strftime('%H:%M:%S')
     data['HD_str'] = data['HD'].dt.strftime('%H:%M:%S')
@@ -147,20 +149,42 @@ def create_interactive_gantt(data, selected_date):
                 data.at[idx, 'Vacation Line'] = line
                 break
 
+    # Définition d'une palette de couleurs fixe pour les compagnies
+    colors = [
+        '#FF9999', '#66B2FF', '#99FF99', '#FFCC99', '#FF99CC',
+        '#99CCFF', '#FFB366', '#FF99FF', '#99FFCC', '#FFB3B3'
+    ]
+    company_colors = {
+        company: colors[i % len(colors)]
+        for i, company in enumerate(data['Company'].unique())
+    }
+
+    # Création du timeline avec la palette de couleurs personnalisée
     fig = px.timeline(
         data,
         x_start="HA",
         x_end="HD",
         y="Vacation Line",
+        color="Company",
+        color_discrete_map=company_colors,
         width=1500,
         height=600,
-        color="Company",
         title=f"Planning des vols du {selected_date.strftime('%d/%m/%Y')}",
         labels={"Company": "Compagnie", "Vacation Line": "Ligne de vacation"},
-        hover_data={"HA_str": True, "HD_str": True, "VOLD": True, "VOLA": True, "DEST": True, "ORG": True, "Flight_Type": True}
+        hover_data={"HA_str": True, "HD_str": True, "VOLD": True, "VOLA": True, "DEST": True, "ORG": True,
+                    "Flight_Type": True}
     )
 
+    # Personnalisation de l'apparence des barres
+    fig.update_traces(
+        marker_line_color='rgb(8,48,107)',
+        marker_line_width=1.5,
+        opacity=0.85
+    )
+
+    # Ajout des annotations de vol et des liserets
     for i, row in data.iterrows():
+        # Annotation du numéro de vol
         fig.add_annotation(
             x=row['HA'] + (row['HD'] - row['HA']) / 2,
             y=row['Vacation Line'],
@@ -172,6 +196,7 @@ def create_interactive_gantt(data, selected_date):
             yanchor="middle"
         )
 
+        # Liserets pour les vols spéciaux
         if row['Flight_Type'] == 'Depart_Sec':
             fig.add_shape(
                 type="line",
@@ -179,7 +204,7 @@ def create_interactive_gantt(data, selected_date):
                 x1=row['HD'],
                 y0=row['Vacation Line'] - 0.4,
                 y1=row['Vacation Line'] + 0.4,
-                line=dict(color="red", width=4),
+                line=dict(color="#FF0000", width=4),
                 layer="above"
             )
         elif row['Flight_Type'] == 'Night_Stop':
@@ -189,50 +214,78 @@ def create_interactive_gantt(data, selected_date):
                 x1=row['HA'],
                 y0=row['Vacation Line'] - 0.4,
                 y1=row['Vacation Line'] + 0.4,
-                line=dict(color="yellow", width=4),
+                line=dict(color="#334cff", width=4),
                 layer="above"
             )
 
-    fig.update_yaxes(title_text="Lignes de vacation", categoryorder="total ascending")
-    fig.update_layout(
-        plot_bgcolor='lightblue',
-        paper_bgcolor='lightblue',
-        margin=dict(l=50, r=50, t=50, b=50),
-        showlegend=True
+    # Mise à jour de la mise en page
+    fig.update_yaxes(
+        title_text="Lignes de vacation",
+        categoryorder="total ascending",
+        gridcolor='rgba(128, 128, 128, 0.2)'
     )
 
+    fig.update_xaxes(
+        gridcolor='rgba(128, 128, 128, 0.2)',
+        tickformat='%H:%M'
+    )
+
+    fig.update_layout(
+        plot_bgcolor='rgba(240, 248, 255, 0.8)',
+        paper_bgcolor='white',
+        margin=dict(l=50, r=50, t=50, b=50),
+        showlegend=True,
+        legend=dict(
+            bgcolor='rgba(255, 255, 255, 0.9)',
+            bordercolor='gray',
+            borderwidth=1
+        ),
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=12
+        )
+    )
+
+    # Légende des types de vols
     fig.add_annotation(
         x=1.02,
         y=1,
         xref="paper",
         yref="paper",
-        text="Types de vols:<br>Liseret Rouge = Départ Sec<br>Liseret Jaune = Night Stop",
+        text="Types de vols:<br>Liseret Rouge à droite = Départ Sec<br>Liseret bleu à gauche= Night Stop",
         showarrow=False,
-        font=dict(color='black',size=12),
+        font=dict(size=12),
         align="left"
-
     )
 
     return fig
 
+
 def export_gantt_to_pdf(fig):
-    fig.update_layout(
-        paper_bgcolor='rgba(255,255,255,1)',
-        plot_bgcolor='rgba(255,255,255,1)',
+    # Créer une copie de la figure pour l'export
+    export_fig = fig
+
+    # Mettre à jour les paramètres spécifiques pour l'export PDF
+    export_fig.update_layout(
+        paper_bgcolor='white',
+        plot_bgcolor='rgba(240, 248, 255, 0.8)',
+        width=1700,
+        height=800
     )
+
     buffer = io.BytesIO()
-    fig.write_image(
+
+    # Export avec une meilleure résolution
+    export_fig.write_image(
         buffer,
         format="pdf",
         engine="kaleido",
-        width=1700,
-        height=800,
         scale=2
     )
+
     pdf_data = buffer.getvalue()
     buffer.close()
     return pdf_data
-
 def display_flight_types(data):
     depart_sec = data[data['Flight_Type'] == 'Depart_Sec']
     night_stop = data[data['Flight_Type'] == 'Night_Stop']
