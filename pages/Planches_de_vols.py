@@ -491,7 +491,7 @@ if data_file:
                     height=450
                 )
     st.write("### Exports PDF")
-    if st.checkbox("Afficher/Masquer les export PDF:"):
+    if st.checkbox("Afficher/Masquer les exports PDF:"):
 
         def add_export_button(data, selected_date, gantt_chart):
             if st.button("Exporter le rapport jour en PDF"):
