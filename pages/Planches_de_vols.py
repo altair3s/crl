@@ -12,45 +12,69 @@ def cached_preprocess_data(data):
     """Fonction mise en cache pour prétraiter les données."""
     return preprocess_data(data)
 
-def parse_time(time_value):
+
+def parse_time(time_value, date=None):
+    """
+    Parse les valeurs de temps en conservant la date spécifiée.
+
+    Args:
+        time_value: La valeur de temps à parser
+        date: La date à utiliser (datetime.date)
+    """
     if pd.isna(time_value):
         return None
+
+    if date is None:
+        date = datetime.today().date()
+
     if isinstance(time_value, str):
         try:
-            return datetime.strptime(time_value, '%H:%M:%S')
+            parsed_time = datetime.strptime(time_value, '%H:%M:%S').time()
         except ValueError:
             try:
-                return datetime.strptime(time_value, '%H:%M')
+                parsed_time = datetime.strptime(time_value, '%H:%M').time()
             except ValueError:
                 return None
+        return datetime.combine(date, parsed_time)
     elif isinstance(time_value, datetime):
-        return time_value
+        return datetime.combine(date, time_value.time())
     elif isinstance(time_value, timedelta):
-        return datetime.combine(datetime.today(), (datetime.min + time_value).time())
+        base_time = (datetime.min + time_value).time()
+        return datetime.combine(date, base_time)
     elif isinstance(time_value, time):
-        return datetime.combine(datetime.today(), time_value)
+        return datetime.combine(date, time_value)
     return None
 
 def format_date(date_str):
     date_obj = pd.to_datetime(date_str)
     return date_obj.strftime('%d/%m/%Y')
 
+
 def preprocess_data(data):
     df = data.copy()
-    df['HA'] = df['HA'].apply(parse_time)
-    df['HD'] = df['HD'].apply(parse_time)
+
+    # Convertir la colonne DATE en datetime
+    df['DATE'] = pd.to_datetime(df['DATE'])
+
+    # Utiliser la date correspondante pour chaque vol
+    df['HA'] = df.apply(lambda row: parse_time(row['HA'], row['DATE'].date()), axis=1)
+    df['HD'] = df.apply(lambda row: parse_time(row['HD'], row['DATE'].date()), axis=1)
+
     night_stop_mask = df['HA'].notna() & df['HD'].isna()
     df.loc[night_stop_mask, 'HD'] = df.loc[night_stop_mask, 'HA'].apply(
         lambda x: x + timedelta(minutes=30)
     )
+
     depart_sec_mask = df['HD'].notna() & df['HA'].isna()
     df.loc[depart_sec_mask, 'HA'] = df.loc[depart_sec_mask, 'HD'].apply(
         lambda x: x - timedelta(minutes=30)
     )
+
     df['Duration'] = (df['HD'] - df['HA']).dt.total_seconds() / 60
     df['Company'] = df['VOLD'].str.extract(r'^([A-Za-z]+)', expand=False)
     night_stop_company = df['VOLA'].str.extract(r'^([A-Za-z]+)', expand=False)
     df.loc[df['Company'].isna(), 'Company'] = night_stop_company
+
     return df[df['HA'].notna() | df['HD'].notna()]
 
 def calculate_flight_stats(data):
@@ -208,6 +232,28 @@ def export_gantt_to_pdf(fig):
     buffer.close()
     return pdf_data
 
+def display_flight_types(data):
+    depart_sec = data[data['Flight_Type'] == 'Depart_Sec']
+    night_stop = data[data['Flight_Type'] == 'Night_Stop']
+
+    st.write(f"**Nombre de vols 'Départs Secs' :** {len(depart_sec)}")
+    st.write(f"**Nombre de vols 'Night Stop' :** {len(night_stop)}")
+
+    # Formater l'affichage des dates
+    def format_datetime(df):
+        df = df.copy()
+        df['HA'] = df['HA'].dt.strftime('%H:%M:%S')
+        df['HD'] = df['HD'].dt.strftime('%H:%M:%S')
+        return df
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.write("### Départs Secs")
+        st.dataframe(format_datetime(depart_sec[['VOLD', 'HA', 'HD', 'Company']]))
+    with col2:
+        st.write("### Vols 'Night Stop'")
+        st.dataframe(format_datetime(night_stop[['VOLA', 'HA', 'HD', 'Company']]))
+
 st.title("Analyse du programme des vols")
 
 data_file = st.file_uploader("Charger un fichier Excel", type=['xlsx'])
@@ -233,6 +279,9 @@ if data_file:
     st.write("### Planche des vols")
     gantt_chart = create_interactive_gantt(filtered_data, selected_date)
     st.plotly_chart(gantt_chart)
+
+    st.write("### Analyse des types de vols")
+    display_flight_types(filtered_data)
 
     if st.checkbox("Afficher/Masquer les statistiques des vols:"):
         st.write("### Statistiques des vols")
