@@ -494,7 +494,7 @@ if data_file:
     if st.checkbox("Afficher/Masquer les export PDF:"):
 
         def add_export_button(data, selected_date, gantt_chart):
-            if st.button("Exporter le rapport complet en PDF"):
+            if st.button("Exporter le rapport jour en PDF"):
                 try:
                     pdf_data = create_pdf_report(data, selected_date, gantt_chart)
                     st.download_button(
