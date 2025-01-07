@@ -490,38 +490,39 @@ if data_file:
                     create_echarts_html(pax_stats, 'Répartition des passagers', 'passagers'),
                     height=450
                 )
+    st.write("### Exports PDF")
+    if st.checkbox("Afficher/Masquer les export PDF:"):
 
+        def add_export_button(data, selected_date, gantt_chart):
+            if st.button("Exporter le rapport complet en PDF"):
+                try:
+                    pdf_data = create_pdf_report(data, selected_date, gantt_chart)
+                    st.download_button(
+                        label="Télécharger le rapport PDF",
+                        data=pdf_data,
+                        file_name=f"rapport_vols_{selected_date.strftime('%Y%m%d')}.pdf",
+                        mime="application/pdf"
+                    )
+                except Exception as e:
+                    st.error(f"Erreur lors de la création du PDF : {str(e)}")
+        gantt_chart = create_interactive_gantt(filtered_data, selected_date)
+        #st.plotly_chart(gantt_chart)
 
-    def add_export_button(data, selected_date, gantt_chart):
-        if st.button("Exporter le rapport complet en PDF"):
+        # Ajout du bouton d'export
+        add_export_button(filtered_data, selected_date, gantt_chart)
+
+        export_btn = st.button("Exporter le graphique Gantt en PDF")
+        if export_btn:
             try:
-                pdf_data = create_pdf_report(data, selected_date, gantt_chart)
+                pdf_data = export_gantt_to_pdf(gantt_chart)
                 st.download_button(
-                    label="Télécharger le rapport PDF",
+                    label="Télécharger le diagramme Gantt en PDF",
                     data=pdf_data,
-                    file_name=f"rapport_vols_{selected_date.strftime('%Y%m%d')}.pdf",
+                    file_name=f"planning_vols_{selected_date.strftime('%d_%m_%Y')}.pdf",
                     mime="application/pdf"
                 )
             except Exception as e:
-                st.error(f"Erreur lors de la création du PDF : {str(e)}")
-    gantt_chart = create_interactive_gantt(filtered_data, selected_date)
-    #st.plotly_chart(gantt_chart)
-
-    # Ajout du bouton d'export
-    add_export_button(filtered_data, selected_date, gantt_chart)
-
-    export_btn = st.button("Exporter le graphique Gantt en PDF")
-    if export_btn:
-        try:
-            pdf_data = export_gantt_to_pdf(gantt_chart)
-            st.download_button(
-                label="Télécharger le diagramme Gantt en PDF",
-                data=pdf_data,
-                file_name=f"planning_vols_{selected_date.strftime('%d_%m_%Y')}.pdf",
-                mime="application/pdf"
-            )
-        except Exception as e:
-            st.error(f"Une erreur est survenue lors de l'export du PDF : {str(e)}")
-            st.info("Assurez-vous d'avoir installé le package kaleido : pip install kaleido")
+                st.error(f"Une erreur est survenue lors de l'export du PDF : {str(e)}")
+                st.info("Assurez-vous d'avoir installé le package kaleido : pip install kaleido")
 
 
