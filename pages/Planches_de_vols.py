@@ -498,7 +498,7 @@ if data_file:
                 try:
                     pdf_data = create_pdf_report(data, selected_date, gantt_chart)
                     st.download_button(
-                        label="Télécharger le rapport PDF",
+                        label="Télécharger le rapport jour",
                         data=pdf_data,
                         file_name=f"rapport_vols_{selected_date.strftime('%Y%m%d')}.pdf",
                         mime="application/pdf"
@@ -516,7 +516,7 @@ if data_file:
             try:
                 pdf_data = export_gantt_to_pdf(gantt_chart)
                 st.download_button(
-                    label="Télécharger le diagramme Gantt en PDF",
+                    label="Télécharger la planche jour",
                     data=pdf_data,
                     file_name=f"planning_vols_{selected_date.strftime('%d_%m_%Y')}.pdf",
                     mime="application/pdf"
