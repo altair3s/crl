@@ -130,8 +130,13 @@ def create_interactive_gantt(data, selected_date):
             key="slider_unique_key"
         )
 
+    # Assigner les lignes de vacation
     data = assign_vacation_lines(data, vacation_amplitude, min_gap)
 
+    # Calculer le nombre de lignes de vacation créées
+    total_vacations = data['Vacation Line'].nunique()
+
+    # Générer le graphique Gantt (inchangé ici)
     data['HA_str'] = data['HA'].dt.strftime('%H:%M:%S')
     data['HD_str'] = data['HD'].dt.strftime('%H:%M:%S')
     data['Flight_Type'] = 'Normal'
@@ -281,7 +286,7 @@ def create_interactive_gantt(data, selected_date):
         align="left"
     )
 
-    return fig, data
+    return fig, data, total_vacations
 
 
 def calculate_flight_stats(data):
@@ -484,8 +489,10 @@ if data_file:
         st.dataframe(filtered_data)
 
     st.write("### Planche des vols")
-    gantt_chart, processed_data = create_interactive_gantt(filtered_data, selected_date)
+    gantt_chart, processed_data, total_vacations = create_interactive_gantt(filtered_data, selected_date)
     st.plotly_chart(gantt_chart)
+    # Afficher le nombre de vacations créées
+    st.write(f"**Nombre de vacations créées : {total_vacations}**")
 
     st.write("### Types de vols")
     display_flight_types(processed_data)
