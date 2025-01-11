@@ -467,7 +467,7 @@ def export_gantt_to_pdf(fig):
     return pdf_data
 
 # Interface principale de l'application
-st.title("Analyse du programme des vols")
+st.title("Dimensionnement")
 
 data_file = st.file_uploader("Charger un fichier Excel", type=['xlsx'])
 
