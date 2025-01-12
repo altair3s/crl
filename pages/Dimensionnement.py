@@ -112,7 +112,7 @@ def assign_vacation_lines(data, vacation_amplitude_hours=8, min_gap_minutes=10):
 def create_interactive_gantt(data, selected_date):
     col1, col2 = st.columns(2)
     with col1:
-        vacation_amplitude = st.slider(
+        vacation_amplitude = st.sidebar.slider(
             "Amplitude des vacations (heures)",
             min_value=4,
             max_value=12,
@@ -121,7 +121,12 @@ def create_interactive_gantt(data, selected_date):
             key="slider_amplitude"
         )
     with col2:
-        min_gap = st.slider(
+        st.write("")
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+        min_gap = st.sidebar.slider(
             "Écart minimum entre les tâches (minutes)",
             min_value=5,
             max_value=30,
@@ -129,6 +134,8 @@ def create_interactive_gantt(data, selected_date):
             step=5,
             key="slider_unique_key"
         )
+    with col4:
+        st.write("")
 
     # Assigner les lignes de vacation
     data = assign_vacation_lines(data, vacation_amplitude, min_gap)
@@ -171,7 +178,7 @@ def create_interactive_gantt(data, selected_date):
         color_discrete_map=company_colors,
         width=1500,
         height=600,
-        title=f"Planning des vols du {selected_date.strftime('%d/%m/%Y')} - Amplitude: {vacation_amplitude}h",
+        title=f"Planning des vols du {selected_date.strftime('%d/%m/%Y')} - Amplitude: {vacation_amplitude}h - Nombre de vacations créées : {total_vacations}",
         labels={"Company": "Compagnie", "Vacation Line": "Ligne de vacation"},
         hover_data={"HA_str": True, "HD_str": True, "VOLD": True, "VOLA": True, "DEST": True, "ORG": True,
                     "Flight_Type": True}
@@ -467,9 +474,9 @@ def export_gantt_to_pdf(fig):
     return pdf_data
 
 # Interface principale de l'application
-st.title("Dimensionnement")
+st.title("Analyse du programme des vols")
 
-data_file = st.file_uploader("Charger un fichier Excel", type=['xlsx'])
+data_file = st.sidebar.file_uploader("Charger un fichier Excel", type=['xlsx'])
 
 if data_file:
     uploaded_data = pd.ExcelFile(data_file)
@@ -478,7 +485,7 @@ if data_file:
     raw_data = cached_preprocess_data(raw_data)
 
     available_dates = pd.to_datetime(raw_data['DATE'].unique())
-    selected_date = st.selectbox(
+    selected_date = st.sidebar.selectbox(
         "Sélectionner une date",
         available_dates,
         format_func=lambda x: x.strftime('%d/%m/%Y')
@@ -491,6 +498,37 @@ if data_file:
     st.write("### Planche des vols")
     gantt_chart, processed_data, total_vacations = create_interactive_gantt(filtered_data, selected_date)
     st.plotly_chart(gantt_chart)
-    # Afficher le nombre de vacations créées
-    st.write(f"**Nombre de vacations créées : {total_vacations}**")
+
+
+    def add_export_button(data, selected_date, gantt_chart):
+        if st.sidebar.button("Exporter le rapport jour en PDF"):
+            try:
+                pdf_data = create_pdf_report(data, selected_date, gantt_chart)
+                st.sidebar.download_button(
+                    label="Télécharger le rapport jour",
+                    data=pdf_data,
+                    file_name=f"rapport_vols_{selected_date.strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf"
+                )
+            except Exception as e:
+                st.error(f"Erreur lors de la création du PDF : {str(e)}")
+
+    # Ajout du bouton d'export
+    add_export_button(filtered_data, selected_date, gantt_chart)
+
+    export_btn = st.sidebar.button("Exporter la planche jour en PDF")
+    if export_btn:
+        try:
+            pdf_data = export_gantt_to_pdf(gantt_chart)
+            st.download_button(
+                label="Télécharger la planche jour",
+                data=pdf_data,
+                file_name=f"planning_vols_{selected_date.strftime('%d_%m_%Y')}.pdf",
+                mime="application/pdf"
+            )
+        except Exception as e:
+            st.error(f"Une erreur est survenue lors de l'export du PDF : {str(e)}")
+            st.info("Assurez-vous d'avoir installé le package kaleido : pip install kaleido")
+
+
     
