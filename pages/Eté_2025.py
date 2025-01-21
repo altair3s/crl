@@ -188,13 +188,14 @@ if uploaded_file:
         )
         st.plotly_chart(fig_escabeaux)
 
+        if st.checkbox("Afficher les tableaux :"):
         # Affichage du DataFrame des besoins en escabeaux
-        st.subheader("Détails des Besoins en Escabeaux par Tranches de 1 Minute")
-        st.dataframe(escabeaux_df)
+            st.subheader("Détails des Besoins en Escabeaux par Tranches de 1 Minute")
+            st.dataframe(escabeaux_df)
 
-        # Affichage des données filtrées
-        st.subheader("Données de la journée sélectionnée")
-        st.dataframe(df_filtered)
+            # Affichage des données filtrées
+            st.subheader("Données de la journée sélectionnée")
+            st.dataframe(df_filtered)
 
         # **Statistiques de la journée**
         st.subheader(f"Statistiques pour le {selected_date}")
