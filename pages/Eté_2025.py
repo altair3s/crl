@@ -45,7 +45,7 @@ compagnie_colors = {
 st.title("Analyse des Vols avec Courbes de Charge et Statistiques")
 
 # Chargement du fichier Excel
-uploaded_file = st.file_uploader("Importez un fichier Excel contenant les données des vols", type=["xlsx", "xls"])
+uploaded_file = st.sidebar.file_uploader("Importez un fichier Excel contenant les données des vols", type=["xlsx", "xls"])
 
 if uploaded_file:
     # Lecture du fichier Excel
@@ -86,7 +86,7 @@ if uploaded_file:
 
     # Ajout d'un filtre pour choisir une date spécifique
     unique_dates = df["Date"].dt.date.unique()
-    selected_date = st.selectbox("Choisissez une date :", unique_dates)
+    selected_date = st.sidebar.selectbox("Choisissez une date :", unique_dates)
 
     if selected_date:
         # Filtrer les données pour la date sélectionnée
