@@ -188,6 +188,8 @@ if uploaded_file:
         )
         st.plotly_chart(fig_escabeaux)
 
+        st.subheader("Afficher les tableaux")
+
         if st.checkbox("Afficher les tableaux :"):
         # Affichage du DataFrame des besoins en escabeaux
             st.subheader("Détails des Besoins en Escabeaux par Tranches de 1 Minute")
