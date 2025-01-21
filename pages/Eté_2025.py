@@ -2,6 +2,10 @@ import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
 import random
+from fpdf import FPDF
+import plotly.io as pio
+import os
+import io
 
 # Fonction pour convertir les heures au format hh:mm
 def format_hhmm_to_hhmm(time):
@@ -77,11 +81,60 @@ def assign_colors(compagnies):
             compagnie_colors[compagnie] = generate_random_color()
     return compagnie_colors
 
+
+def export_gantt_to_pdf_one_page_streamlit(fig_global, fig_charge, fig_escabeaux):
+    """
+    Exporte les trois diagrammes de Gantt sur une seule page PDF, et retourne un objet binaire pour Streamlit.
+
+    :param fig_global: Graphique de charge globale (Plotly Figure).
+    :param fig_charge: Graphique de charge par compagnie (Plotly Figure).
+    :param fig_escabeaux: Graphique des besoins en escabeaux (Plotly Figure).
+    :return: BytesIO object contenant le PDF.
+    """
+    # Créer un répertoire temporaire pour enregistrer les images
+    temp_dir = "temp_gantt_images"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    # Sauvegarder les figures en tant qu'images
+    fig_global_path = os.path.join(temp_dir, "charge_globale.png")
+    fig_charge_path = os.path.join(temp_dir, "charge_par_compagnie.png")
+    fig_escabeaux_path = os.path.join(temp_dir, "besoins_escabeaux.png")
+
+    # Exporter les graphiques Plotly en fichiers PNG
+    pio.write_image(fig_global, fig_global_path, format="png", width=2000, height=400)
+    pio.write_image(fig_charge, fig_charge_path, format="png", width=2000, height=400)
+    pio.write_image(fig_escabeaux, fig_escabeaux_path, format="png", width=2000, height=400)
+
+    # Initialiser le PDF
+    pdf = FPDF(orientation='L', unit='mm', format='A4')
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, f"Diagrammes de Gantt pour la journée du {selected_date}", ln=True, align='C')
+
+    # Ajouter les images au PDF (organisées verticalement)
+    y_position = 20
+    for img_path in [fig_global_path, fig_charge_path, fig_escabeaux_path]:
+        pdf.image(img_path, x=10, y=y_position, w=270)  # Ajuste largeur pour A4 paysage
+        y_position += 70  # Espacement vertical entre les graphiques
+
+    # Obtenir le contenu PDF en tant que bytes
+    pdf_data = pdf.output(dest='S').encode('latin1')  # Générer un fichier PDF dans un buffer en mémoire
+
+    # Supprimer les images temporaires
+    for file in [fig_global_path, fig_charge_path, fig_escabeaux_path]:
+        os.remove(file)
+    os.rmdir(temp_dir)
+
+    # Convertir les données en objet BytesIO
+    pdf_buffer = io.BytesIO(pdf_data)
+
+    return pdf_buffer
+
 # Streamlit App
 st.title("Analyse des Vols avec Courbes de Charge, Gantt et Statistiques")
 
 # Chargement du fichier Excel
-uploaded_file = st.sidebar.file_uploader("Importez un fichier Excel contenant les données des vols", type=["xlsx", "xls"])
+uploaded_file = st.sidebar.file_uploader("Importez le fichier des vols", type=["xlsx", "xls"])
 
 if uploaded_file:
     # Charger les données Excel
@@ -191,7 +244,7 @@ if uploaded_file:
                 x=escabeaux_df["Heure"],
                 y=escabeaux_df["Besoins en Escabeaux"],
                 name="Besoins en Escabeaux",
-                marker=dict(color="green"),
+                marker=dict(color="darkgreen"),
             )
         )
         fig_escabeaux.update_layout(
@@ -205,9 +258,28 @@ if uploaded_file:
         )
         st.plotly_chart(fig_escabeaux)
 
-        # Affichage du dataframe des besoins en escabeaux
-        st.subheader("Tableau des besoins en escabeaux")
-        st.dataframe(escabeaux_df)
+        # Bouton pour télécharger le PDF
+        if st.sidebar.button("Générer et Télécharger le PDF des Graphs"):
+            with st.spinner("Génération du PDF en cours..."):
+                pdf_buffer = export_gantt_to_pdf_one_page_streamlit(fig_global, fig_charge, fig_escabeaux)
+
+                # Ajouter un lien de téléchargement
+                st.sidebar.download_button(
+                    label="Télécharger le PDF",
+                    data=pdf_buffer,
+                    file_name="gantt_charts.pdf",
+                    mime="application/pdf",
+                )
+
+        st.subheader(f"Tableaux des donnée pour le {selected_date}")
+        if st.checkbox("Afficher les tableaux :"):
+            # Affichage du DataFrame des besoins en escabeaux
+            st.subheader("Détails des Besoins en Escabeaux par Tranches de 15 Minutes")
+            st.dataframe(escabeaux_df)
+
+            # Affichage des données filtrées
+            st.subheader("Données de la journée sélectionnée")
+            st.dataframe(df_filtered)
 
         # **Statistiques de la journée**
         st.subheader(f"Statistiques pour le {selected_date}")
