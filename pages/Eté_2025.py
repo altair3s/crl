@@ -7,6 +7,8 @@ import plotly.io as pio
 import os
 import io
 
+st.set_page_config(layout='wide')
+
 # Fonction pour convertir les heures au format hh:mm
 def format_hhmm_to_hhmm(time):
     if pd.isna(time) or time == "-":
