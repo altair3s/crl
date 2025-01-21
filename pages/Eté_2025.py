@@ -38,7 +38,7 @@ def generate_random_color():
 st.title("Analyse des Vols avec Courbes de Charge et Statistiques")
 
 # Chargement du fichier Excel
-uploaded_file = st.sidebar.file_uploader("Importez un fichier Excel contenant les données des vols", type=["xlsx", "xls"])
+uploaded_file = st.sidebar.file_uploader("Importez le programme des vols", type=["xlsx", "xls"])
 
 if uploaded_file:
     # Lecture du fichier Excel
