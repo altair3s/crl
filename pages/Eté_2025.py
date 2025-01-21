@@ -30,16 +30,9 @@ def extract_company_code(flight_number):
         return "".join([char for char in flight_number if char.isalpha()])
     return None
 
-# Générer une couleur aléatoire
+# Génération de couleurs aléatoires pour les compagnies
 def generate_random_color():
     return f"#{random.randint(0, 0xFFFFFF):06x}"
-
-# Dictionnaire fixe des couleurs des compagnies (modifiable si nécessaire)
-compagnie_colors = {
-    "FR": "#FF5733",  # Exemple : Couleur fixe pour la compagnie "FR"
-    "W6": "#33FF57",  # Exemple : Couleur fixe pour la compagnie "W6"
-    "LH": "#3357FF",  # Exemple : Couleur fixe pour la compagnie "LH"
-}
 
 # Streamlit App
 st.title("Analyse des Vols avec Courbes de Charge et Statistiques")
@@ -75,13 +68,9 @@ if uploaded_file:
     # Supprimer les lignes où les intervalles ne peuvent pas être créés
     df = df.dropna(subset=["Start", "End"])
 
-    # Assigner une couleur fixe ou générer une nouvelle couleur pour les compagnies absentes du dictionnaire
-    unique_compagnies = df["Compagnie"].dropna().unique()
-    for compagnie in unique_compagnies:
-        if compagnie not in compagnie_colors:
-            compagnie_colors[compagnie] = generate_random_color()
-
-    # Assigner les couleurs aux données
+    # Génération de couleurs par compagnie
+    compagnies = df["Compagnie"].unique()
+    compagnie_colors = {compagnie: generate_random_color() for compagnie in compagnies}
     df["Color"] = df["Compagnie"].map(compagnie_colors)
 
     # Ajout d'un filtre pour choisir une date spécifique
@@ -92,13 +81,44 @@ if uploaded_file:
         # Filtrer les données pour la date sélectionnée
         df_filtered = df[df["Date"].dt.date == selected_date]
 
+
+
+        # **Courbe de charge globale**
+        st.subheader(f"Courbe de charge globale pour le {selected_date}")
+        time_range = pd.date_range(f"{selected_date} 05:30", f"{selected_date} 23:59", freq="1min")
+        charge_global = []
+        for time in time_range:
+            count = ((df_filtered["Start"] <= time) & (df_filtered["End"] >= time)).sum()
+            charge_global.append(count)
+
+        # Création de la courbe de charge globale
+        fig_global = go.Figure()
+        fig_global.add_trace(
+            go.Scatter(
+                x=time_range,
+                y=charge_global,
+                mode="lines",
+                name="Charge Globale",
+                line=dict(color="blue"),
+            )
+        )
+        fig_global.update_layout(
+            title="Courbe de Charge Globale des Vols",
+            xaxis_title="Heures de la journée",
+            yaxis_title="Nombre de vols simultanés",
+            xaxis=dict(tickformat="%H:%M"),
+            yaxis=dict(tickformat="d"),
+            width=1400,
+            height=500,
+        )
+        st.plotly_chart(fig_global)
+
         # **Courbes de charge multi-tracés par compagnie**
         st.subheader(f"Courbes de charge par compagnie pour le {selected_date}")
         fig_charge = go.Figure()
 
         # Pour chaque compagnie, tracer sa courbe
-        time_range = pd.date_range(f"{selected_date} 00:00", f"{selected_date} 23:59", freq="1min")
-        for compagnie in unique_compagnies:
+        for compagnie in compagnies:
             df_compagnie = df_filtered[df_filtered["Compagnie"] == compagnie]
             charge = []
             for time in time_range:
@@ -122,11 +142,85 @@ if uploaded_file:
             xaxis=dict(tickformat="%H:%M"),
             yaxis=dict(tickformat="d"),
             legend_title="Compagnies",
+            width=1400,
+            height=500,
         )
         st.plotly_chart(fig_charge)
 
-        # Affichage des couleurs fixes des compagnies
-        st.subheader("Couleurs des Compagnies (fixes)")
-        st.dataframe(pd.DataFrame(list(compagnie_colors.items()), columns=["Compagnie", "Couleur"]))
+        # **Besoins en escabeaux**
+        st.subheader(f"Besoins en escabeaux pour le {selected_date}")
+        time_range_escabeaux = pd.date_range(f"{selected_date} 06:00", f"{selected_date} 23:59", freq="1min")
+        besoin_escabeaux = []
+        for time in time_range_escabeaux:
+            active_vols = df_filtered[(df_filtered["Start"] <= time) & (df_filtered["End"] >= time)]
+            count_fr = (active_vols["Compagnie"] == "FR").sum()  # 1 escabeau pour "FR"
+            count_other = (active_vols["Compagnie"] != "FR").sum()  # 2 escabeaux pour les autres
+            total_escabeaux = count_fr * 1 + count_other * 2
+            besoin_escabeaux.append(total_escabeaux)
 
-        # Le reste du code reste inchangé (statistiques, courbes de charge, besoins en escabeaux, etc.)
+        # Grouper par tranches de 15 minutes
+        escabeaux_df = pd.DataFrame({
+            "Heure": time_range_escabeaux,
+            "Besoins en Escabeaux": besoin_escabeaux
+        })
+        escabeaux_df["Tranche"] = escabeaux_df["Heure"].dt.floor("1min")  # Tranches de 15 minutes
+        escabeaux_df = escabeaux_df.groupby("Tranche").sum(numeric_only=True).reset_index()
+
+        # Création du graphique des besoins en escabeaux
+        fig_escabeaux = go.Figure()
+        fig_escabeaux.add_trace(
+            go.Scatter(
+                x=escabeaux_df["Tranche"],
+                y=escabeaux_df["Besoins en Escabeaux"],
+                mode="lines",
+                name="Besoins en Escabeaux",
+                line=dict(color="orange"),
+            )
+        )
+        fig_escabeaux.update_layout(
+            title="Besoins en Escabeaux par Tranches de 1 Minute (05:30 - 23:59)",
+            xaxis_title="Heures de la journée",
+            yaxis_title="Nombre d'escabeaux nécessaires",
+            xaxis=dict(tickformat="%H:%M"),
+            yaxis=dict(tickformat="d"),
+            width=1400,
+            height=500,
+        )
+        st.plotly_chart(fig_escabeaux)
+
+        # Affichage du DataFrame des besoins en escabeaux
+        st.subheader("Détails des Besoins en Escabeaux par Tranches de 1 Minute")
+        st.dataframe(escabeaux_df)
+
+        # Affichage des données filtrées
+        st.subheader("Données de la journée sélectionnée")
+        st.dataframe(df_filtered)
+
+        # **Statistiques de la journée**
+        st.subheader(f"Statistiques pour le {selected_date}")
+
+        # Nombre d'arrivées et de départs
+        nb_arrivees = df_filtered["Arr"].notna().sum()
+        nb_departs = df_filtered["Dép"].notna().sum()
+        st.markdown(f"**Nombre d'arrivées :** {nb_arrivees}")
+        st.markdown(f"**Nombre de départs :** {nb_departs}")
+
+        # Ventilation par compagnie
+        compagnie_counts = df_filtered["Compagnie"].value_counts()
+        fig_compagnie = go.Figure(
+            data=[go.Pie(labels=compagnie_counts.index, values=compagnie_counts.values, hole=0.4)]
+        )
+        fig_compagnie.update_layout(title="Répartition des vols par compagnie")
+        st.plotly_chart(fig_compagnie)
+
+        # Statistiques des types d'avions
+        type_avion_counts = df_filtered["Type"].value_counts()
+        fig_avion = go.Figure(
+            data=[go.Bar(x=type_avion_counts.index, y=type_avion_counts.values)]
+        )
+        fig_avion.update_layout(
+            title="Statistiques des Types d'Avions",
+            xaxis_title="Type d'Avion",
+            yaxis_title="Nombre de Vols",
+        )
+        st.plotly_chart(fig_avion)
