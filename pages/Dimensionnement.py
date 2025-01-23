@@ -114,10 +114,10 @@ def create_interactive_gantt(data, selected_date):
     with col1:
         vacation_amplitude = st.sidebar.slider(
             "Amplitude des vacations (heures)",
-            min_value=4,
-            max_value=12,
-            value=8,
-            step=1,
+            min_value=4.0,
+            max_value=12.0,
+            value=8.0,
+            step=0.5,
             key="slider_amplitude"
         )
     with col2:
